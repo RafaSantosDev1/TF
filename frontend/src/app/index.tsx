@@ -1,98 +1,227 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  StyleSheet,
+  View,
+  TextInput,
+  Pressable,
+  Text,
+  FlatList,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
+const questions = [
+  {
+    id: "1",
+    question: "O que é a terapia da fala?",
+    answer:
+      "A terapia da fala é uma área da saúde que trabalha a comunicação, linguagem, voz, fala e deglutição.",
+  },
+  {
+    id: "2",
+    question: "Quais são as áreas da terapia da fala?",
+    answer:
+      "Entre as principais áreas estão a linguagem, fala, voz, comunicação e deglutição.",
+  },
+  {
+    id: "3",
+    question: "Quando devo procurar um terapeuta da fala?",
+    answer:
+      "Pode ser indicado procurar um terapeuta da fala quando existem dificuldades na comunicação, fala, linguagem ou voz.",
+  },
+  {
+    id: "4",
+    question: "A terapia da fala é só para crianças?",
+    answer:
+      "Não. A terapia da fala pode ser realizada por crianças, adolescentes, adultos e idosos.",
+  },
+  {
+    id: "5",
+    question: "O que é uma alteração da linguagem?",
+    answer:
+      "É uma dificuldade que pode afetar a compreensão ou a utilização da linguagem.",
+  },
+  {
+    id: "6",
+    question: "O que é uma alteração da linguagem?",
+    answer:
+      "É uma dificuldade que pode afetar a compreensão ou a utilização da linguagem.",
+  },
+  {
+    id: "7",
+    question: "O que é uma alteração da linguagem?",
+    answer:
+      "É uma dificuldade que pode afetar a compreensão ou a utilização da linguagem.",
+  },
+];
 
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
+export default function Page() {
   return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+    <LinearGradient
+      colors={["#bbc4e6ff", "#181698ff"]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 0, y: 1 }}
+      style={styles.container}
+    >
 
-export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+      {/* Perguntas */}
+      <FlatList
+        data={questions}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => (
+          <View style={styles.questionCard}>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+            <Text style={styles.question}>
+              {item.question}
+            </Text>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+            <Text style={styles.answer}>
+              {item.answer}
+            </Text>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+          </View>
+        )}
+
+        // Botão no fim das perguntas
+        ListFooterComponent={
+          <Pressable style={styles.askButton}>
+            <Text style={styles.plus}>
+              +
+            </Text>
+
+            <Text style={styles.askButtonText}>
+              Fazer pergunta
+            </Text>
+          </Pressable>
+        }
+      />
+
+      {/* TopBar sobreposto */}
+      <View style={styles.topBar}>
+
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Pesquisar perguntas..."
+          placeholderTextColor="#888888"
+        />
+
+        <Pressable style={styles.searchButton}>
+          <Text style={styles.searchButtonText}>
+            🔍
+          </Text>
+        </Pressable>
+
+      </View>
+
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    flexDirection: 'row',
   },
-  safeArea: {
+
+  list: {
+    paddingHorizontal: 20,
+    paddingTop: 100,
+    paddingBottom: 120,
+  },
+
+  questionCard: {
+    width: "100%",
+    padding: 20,
+    marginBottom: 16,
+    borderRadius: 20,
+    borderColor: "#888888",
+    borderWidth: 3,
+    backgroundColor: "#2738a4ff",
+  },
+
+  question: {
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#ffffffff",
+    marginBottom: 12,
+  },
+
+  answer: {
+    fontSize: 14,
+    lineHeight: 21,
+    color: "#cccccc",
+  },
+
+  // Botão "Fazer pergunta"
+  askButton: {
+    height: 58,
+    marginTop: 4,
+    marginBottom: 20,
+
+    borderRadius: 29,
+
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+
+    backgroundColor: "#ffeeeeff",
+  },
+
+  plus: {
+    fontSize: 28,
+    fontWeight: "400",
+    color: "#323232ff",
+    marginRight: 8,
+    marginTop: -2,
+  },
+
+  askButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#323232ff",
+  },
+
+  topBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#aab6e3ff",
+  },
+
+  searchInput: {
     flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    height: 48,
+
+    paddingHorizontal: 18,
+
+    borderRadius: 24,
+
+    backgroundColor: "#ffeeeeff",
+
+    color: "#323232ff",
+    fontSize: 15,
   },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+
+  searchButton: {
+    width: 48,
+    height: 48,
+
+    marginLeft: 8,
+
+    borderRadius: 24,
+
+    alignItems: "center",
+    justifyContent: "center",
+
+    backgroundColor: "#ffeeeeff",
   },
-  title: {
-    textAlign: 'center',
-  },
-  code: {
-    textTransform: 'uppercase',
-  },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+
+  searchButtonText: {
+    fontSize: 20,
   },
 });
