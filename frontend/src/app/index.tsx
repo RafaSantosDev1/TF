@@ -6,18 +6,132 @@ import {
   Text,
   FlatList,
   ActivityIndicator,
+  Modal,
+  Alert,
 } from "react-native";
+
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect, useState } from "react";
+import { useLocalSearchParams } from "expo-router";
 
-import { getAllQuestions } from "../services/questionService";
-import { Question } from "../services/types";
+import {
+  getAllQuestions,
+  createQuestion,
+} from "../services/questionService";
+
+import { getCurrentUserId } from "../services/sessionService";
+
+import {
+  Question,
+  Area,
+  CreateQuestionRequest,
+} from "../services/types";
+
+const AREAS: ("Todas" | Area)[] = [
+  "Todas",
+  "Voz",
+  "Linguagem",
+  "Fala",
+  "Fluencia",
+];
+
+const QUESTION_AREAS: Area[] = [
+  "Voz",
+  "Linguagem",
+  "Fala",
+  "Fluencia",
+];
 
 export default function Page() {
+  /*
+   * ID DO UTILIZADOR ATUAL
+   *
+   * A fonte principal da identidade é a
+   * sessão local (@current_user_id),
+   * criada no registo com o user.id
+   * devolvido pelo POST /users.
+   *
+   * Os route params são apenas um
+   * fallback temporário de navegação
+   * e nunca substituem a sessão.
+   */
+  const { userId: routeUserId } = useLocalSearchParams<{
+    userId?: string;
+  }>();
+
+  const [userId, setUserId] = useState<string | null>(null);
+
+  const [loadingUser, setLoadingUser] = useState(true);
+
+  // ----------------------------------------
+  // PERGUNTAS
+  // ----------------------------------------
+
   const [questions, setQuestions] = useState<Question[]>([]);
+
   const [search, setSearch] = useState("");
+
+  const [selectedArea, setSelectedArea] =
+    useState<"Todas" | Area>("Todas");
+
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const [error, setError] =
+    useState<string | null>(null);
+
+  // ----------------------------------------
+  // MODAL CRIAR PERGUNTA
+  // ----------------------------------------
+
+  const [showCreateModal, setShowCreateModal] =
+    useState(false);
+
+  const [title, setTitle] = useState("");
+
+  const [content, setContent] = useState("");
+
+  const [questionArea, setQuestionArea] =
+    useState<Area>("Voz");
+
+  const [creatingQuestion, setCreatingQuestion] =
+    useState(false);
+
+  // ----------------------------------------
+  // CARREGAR SESSÃO ATUAL
+  // ----------------------------------------
+
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      try {
+        const currentUserId =
+          await getCurrentUserId();
+
+        console.log(
+          "Sessão atual:",
+          currentUserId
+        );
+
+        setUserId(
+          currentUserId ??
+          routeUserId ??
+          null
+        );
+      } catch (error) {
+        console.error(
+          "Erro ao carregar sessão:",
+          error
+        );
+      } finally {
+        setLoadingUser(false);
+      }
+    };
+
+    loadCurrentUser();
+  }, [routeUserId]);
+
+  // ----------------------------------------
+  // CARREGAR PERGUNTAS
+  // ----------------------------------------
 
   useEffect(() => {
     loadQuestions();
@@ -28,40 +142,310 @@ export default function Page() {
       setLoading(true);
       setError(null);
 
-      const data = await getAllQuestions();
+      const data =
+        await getAllQuestions();
+
+      console.log(
+        "Perguntas carregadas:",
+        data
+      );
 
       setQuestions(data);
     } catch (error) {
-      console.error("Erro ao carregar questões:", error);
-      setError("Não foi possível carregar as questões.");
+      console.error(
+        "Erro ao carregar questões:",
+        error
+      );
+
+      setError(
+        "Não foi possível carregar as questões."
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  // Filtrar questões através da pesquisa
-  const filteredQuestions = questions.filter((question) => {
-    const searchText = search.toLowerCase();
+  // ----------------------------------------
+  // FILTRO
+  // ----------------------------------------
 
-    return (
-      question.title.toLowerCase().includes(searchText) ||
-      question.content.toLowerCase().includes(searchText) ||
-      question.authorName.toLowerCase().includes(searchText) ||
-      question.area.toLowerCase().includes(searchText)
+  const filteredQuestions =
+    questions.filter((question) => {
+      const searchText =
+        search.toLowerCase().trim();
+
+      const matchesSearch =
+        question.title
+          .toLowerCase()
+          .includes(searchText) ||
+        question.content
+          .toLowerCase()
+          .includes(searchText) ||
+        question.authorName
+          .toLowerCase()
+          .includes(searchText);
+
+      const matchesArea =
+        selectedArea === "Todas" ||
+        question.area === selectedArea;
+
+      return (
+        matchesSearch &&
+        matchesArea
+      );
+    });
+
+  // ----------------------------------------
+  // ABRIR MODAL
+  // ----------------------------------------
+
+  const openCreateModal = () => {
+    console.log(
+      "Abrir modal de criar pergunta"
     );
-  });
+
+    console.log(
+      "userId atual:",
+      userId
+    );
+
+    setShowCreateModal(true);
+  };
+
+  // ----------------------------------------
+  // CRIAR PERGUNTA
+  // ----------------------------------------
+
+  const handleCreateQuestion = async () => {
+    console.log(
+      "================================"
+    );
+
+    console.log(
+      "A criar pergunta..."
+    );
+
+    console.log(
+      "Sessão atual:",
+      userId
+    );
+
+    console.log(
+      "title:",
+      title
+    );
+
+    console.log(
+      "content:",
+      content
+    );
+
+    console.log(
+      "area:",
+      questionArea
+    );
+
+    console.log(
+      "================================"
+    );
+
+    // ----------------------------------------
+    // VALIDAR USER ID
+    // ----------------------------------------
+
+    if (!userId) {
+      Alert.alert(
+        "Sessão inválida",
+        "Não foi possível identificar o utilizador atual."
+      );
+
+      console.error(
+        "userId não existe."
+      );
+
+      return;
+    }
+
+    // ----------------------------------------
+    // VALIDAR TÍTULO
+    // ----------------------------------------
+
+    if (!title.trim()) {
+      Alert.alert(
+        "Título obrigatório",
+        "Introduz um título para a pergunta."
+      );
+
+      return;
+    }
+
+    // ----------------------------------------
+    // VALIDAR CONTEÚDO
+    // ----------------------------------------
+
+    if (!content.trim()) {
+      Alert.alert(
+        "Pergunta obrigatória",
+        "Introduz o conteúdo da pergunta."
+      );
+
+      return;
+    }
+
+    try {
+      setCreatingQuestion(true);
+
+      // ----------------------------------------
+      // DADOS DO POST
+      // ----------------------------------------
+
+      const data: CreateQuestionRequest = {
+        title: title.trim(),
+        content: content.trim(),
+        authorId: userId,
+        area: questionArea,
+      };
+
+      console.log(
+        "Criando pergunta com authorId:",
+        data.authorId
+      );
+
+      console.log(
+        "Dados enviados para POST /questions:",
+        data
+      );
+
+      // ----------------------------------------
+      // POST
+      // ----------------------------------------
+
+      const createdQuestion =
+        await createQuestion(data);
+
+      console.log(
+        "Pergunta criada com sucesso:",
+        createdQuestion
+      );
+
+      // ----------------------------------------
+      // ADICIONAR À LISTA
+      // ----------------------------------------
+
+      setQuestions(
+        (currentQuestions) => [
+          createdQuestion,
+          ...currentQuestions,
+        ]
+      );
+
+      // ----------------------------------------
+      // LIMPAR FORMULÁRIO
+      // ----------------------------------------
+
+      setTitle("");
+
+      setContent("");
+
+      setQuestionArea("Voz");
+
+      // ----------------------------------------
+      // FECHAR MODAL
+      // ----------------------------------------
+
+      setShowCreateModal(false);
+
+      // ----------------------------------------
+      // MENSAGEM
+      // ----------------------------------------
+
+      Alert.alert(
+        "Pergunta criada",
+        "A tua pergunta foi criada com sucesso."
+      );
+    } catch (error: any) {
+      console.error(
+        "================================"
+      );
+
+      console.error(
+        "ERRO AO CRIAR PERGUNTA"
+      );
+
+      console.error(
+        error
+      );
+
+      console.error(
+        "Response:",
+        error?.response?.data
+      );
+
+      console.error(
+        "Status:",
+        error?.response?.status
+      );
+
+      console.error(
+        "================================"
+      );
+
+      const message =
+        error?.response?.data?.message ??
+        error?.response?.data ??
+        "Não foi possível criar a pergunta.";
+
+      Alert.alert(
+        "Erro",
+        typeof message === "string"
+          ? message
+          : "Não foi possível criar a pergunta."
+      );
+    } finally {
+      setCreatingQuestion(false);
+    }
+  };
+
+  // ----------------------------------------
+  // FECHAR MODAL
+  // ----------------------------------------
+
+  const closeCreateModal = () => {
+    if (creatingQuestion) {
+      return;
+    }
+
+    setTitle("");
+
+    setContent("");
+
+    setQuestionArea("Voz");
+
+    setShowCreateModal(false);
+  };
+
+  // ----------------------------------------
+  // RENDER
+  // ----------------------------------------
 
   return (
     <LinearGradient
-      colors={["#bbc4e6ff", "#181698ff"]}
+      colors={[
+        "#bbc4e6ff",
+        "#181698ff",
+      ]}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
       style={styles.container}
     >
 
-      {/* Perguntas */}
+      {/* -------------------------------- */}
+      {/* PERGUNTAS */}
+      {/* -------------------------------- */}
+
       {loading ? (
         <View style={styles.center}>
+
           <ActivityIndicator
             size="large"
             color="#ffffff"
@@ -70,9 +454,11 @@ export default function Page() {
           <Text style={styles.loadingText}>
             A carregar perguntas...
           </Text>
+
         </View>
       ) : error ? (
         <View style={styles.center}>
+
           <Text style={styles.errorText}>
             {error}
           </Text>
@@ -85,40 +471,84 @@ export default function Page() {
               Tentar novamente
             </Text>
           </Pressable>
+
         </View>
       ) : (
         <FlatList
           data={filteredQuestions}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.list}
-          showsVerticalScrollIndicator={false}
+
+          keyExtractor={(item) =>
+            item.id
+          }
+
+          contentContainerStyle={
+            styles.list
+          }
+
+          showsVerticalScrollIndicator={
+            false
+          }
 
           renderItem={({ item }) => (
-            <View style={styles.questionCard}>
+            <View
+              style={
+                styles.questionCard
+              }
+            >
 
-              {/* Título da questão */}
-              <Text style={styles.question}>
+              {/* TÍTULO */}
+
+              <Text
+                style={
+                  styles.question
+                }
+              >
                 {item.title}
               </Text>
 
-              {/* Conteúdo da questão */}
-              <Text style={styles.content}>
+              {/* CONTEÚDO */}
+
+              <Text
+                style={
+                  styles.content
+                }
+              >
                 {item.content}
               </Text>
 
-              {/* Informação */}
-              <View style={styles.info}>
-                <Text style={styles.author}>
+              {/* INFORMAÇÃO */}
+
+              <View
+                style={
+                  styles.info
+                }
+              >
+
+                <Text
+                  style={
+                    styles.author
+                  }
+                >
                   Por: {item.authorName}
                 </Text>
 
-                <Text style={styles.area}>
+                <Text
+                  style={
+                    styles.area
+                  }
+                >
                   {item.area}
                 </Text>
+
               </View>
 
-              {/* Número de respostas */}
-              <Text style={styles.answersCount}>
+              {/* RESPOSTAS */}
+
+              <Text
+                style={
+                  styles.answersCount
+                }
+              >
                 {item.answersCount === 1
                   ? "1 resposta"
                   : `${item.answersCount} respostas`}
@@ -127,272 +557,1005 @@ export default function Page() {
             </View>
           )}
 
-          // Caso a pesquisa não encontre nada
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>
-                {search
+            <View
+              style={
+                styles.emptyContainer
+              }
+            >
+
+              <Text
+                style={
+                  styles.emptyText
+                }
+              >
+                {search ||
+                  selectedArea !== "Todas"
                   ? "Nenhuma pergunta encontrada."
                   : "Ainda não existem perguntas."}
               </Text>
+
             </View>
           }
 
-          // Botão no fim das perguntas
+
           ListFooterComponent={
-            filteredQuestions.length > 0 ? (
-              <Pressable style={styles.askButton}>
-                <Text style={styles.plus}>
+            !loading &&
+              !error &&
+              !loadingUser ? (
+              <Pressable
+                style={
+                  styles.askButton
+                }
+                onPress={
+                  openCreateModal
+                }
+              >
+
+                <Text
+                  style={
+                    styles.plus
+                  }
+                >
                   +
                 </Text>
 
-                <Text style={styles.askButtonText}>
+                <Text
+                  style={
+                    styles.askButtonText
+                  }
+                >
                   Fazer pergunta
                 </Text>
+
               </Pressable>
             ) : null
           }
         />
       )}
 
-      {/* TopBar sobreposto */}
-      <View style={styles.topBar}>
+      {/* -------------------------------- */}
+      {/* TOP BAR */}
+      {/* -------------------------------- */}
 
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Pesquisar perguntas..."
-          placeholderTextColor="#888888"
-          value={search}
-          onChangeText={setSearch}
+      <View
+        style={
+          styles.topBar
+        }
+      >
+
+        {/* PESQUISA */}
+
+        <View
+          style={
+            styles.searchRow
+          }
+        >
+
+          <TextInput
+            style={
+              styles.searchInput
+            }
+
+            placeholder="Pesquisar perguntas..."
+
+            placeholderTextColor="#888888"
+
+            value={search}
+
+            onChangeText={
+              setSearch
+            }
+          />
+
+        </View>
+
+        {/* ÁREAS */}
+
+        <FlatList
+          horizontal
+
+          data={AREAS}
+
+          keyExtractor={(item) =>
+            item
+          }
+
+          showsHorizontalScrollIndicator={
+            false
+          }
+
+          contentContainerStyle={
+            styles.areaFilters
+          }
+
+          renderItem={({
+            item,
+          }) => {
+
+            const selected =
+              selectedArea === item;
+
+            return (
+              <Pressable
+                style={[
+                  styles.areaFilter,
+
+                  selected &&
+                  styles.areaFilterSelected,
+                ]}
+
+                onPress={() =>
+                  setSelectedArea(
+                    item
+                  )
+                }
+              >
+
+                <Text
+                  style={[
+                    styles.areaFilterText,
+
+                    selected &&
+                    styles.areaFilterTextSelected,
+                  ]}
+                >
+                  {item}
+                </Text>
+
+              </Pressable>
+            );
+          }}
         />
 
-        <Pressable style={styles.searchButton}>
-          <Text style={styles.searchButtonText}>
-            🔍
-          </Text>
-        </Pressable>
-
       </View>
+
+      {/* -------------------------------- */}
+      {/* MODAL CRIAR PERGUNTA */}
+      {/* -------------------------------- */}
+
+      <Modal
+        visible={
+          showCreateModal
+        }
+
+        transparent
+
+        animationType="fade"
+
+        onRequestClose={
+          closeCreateModal
+        }
+      >
+
+        <View
+          style={
+            styles.modalBackground
+          }
+        >
+
+          <View
+            style={
+              styles.modal
+            }
+          >
+
+            {/* CABEÇALHO */}
+
+            <View
+              style={
+                styles.modalHeader
+              }
+            >
+
+              <Text
+                style={
+                  styles.modalTitle
+                }
+              >
+                Fazer pergunta
+              </Text>
+
+              <Pressable
+                onPress={
+                  closeCreateModal
+                }
+
+                disabled={
+                  creatingQuestion
+                }
+              >
+
+                <Text
+                  style={
+                    styles.closeButton
+                  }
+                >
+                  ×
+                </Text>
+
+              </Pressable>
+
+            </View>
+
+            {/* TÍTULO */}
+
+            <Text
+              style={
+                styles.inputLabel
+              }
+            >
+              Título
+            </Text>
+
+            <TextInput
+              style={
+                styles.input
+              }
+
+              placeholder="Ex: Como avaliar a fluência?"
+
+              placeholderTextColor="#888888"
+
+              value={title}
+
+              onChangeText={
+                setTitle
+              }
+
+              editable={
+                !creatingQuestion
+              }
+
+              maxLength={150}
+            />
+
+            {/* PERGUNTA */}
+
+            <Text
+              style={
+                styles.inputLabel
+              }
+            >
+              Pergunta
+            </Text>
+
+            <TextInput
+              style={[
+                styles.input,
+                styles.contentInput,
+              ]}
+
+              placeholder="Escreve a tua pergunta..."
+
+              placeholderTextColor="#888888"
+
+              value={content}
+
+              onChangeText={
+                setContent
+              }
+
+              editable={
+                !creatingQuestion
+              }
+
+              multiline
+
+              textAlignVertical="top"
+
+              maxLength={1000}
+            />
+
+            {/* ÁREA */}
+
+            <Text
+              style={
+                styles.inputLabel
+              }
+            >
+              Área
+            </Text>
+
+            <FlatList
+              horizontal
+
+              data={
+                QUESTION_AREAS
+              }
+
+              keyExtractor={(
+                item
+              ) => item}
+
+              showsHorizontalScrollIndicator={
+                false
+              }
+
+              contentContainerStyle={
+                styles.modalAreas
+              }
+
+              renderItem={({
+                item,
+              }) => {
+
+                const selected =
+                  questionArea ===
+                  item;
+
+                return (
+                  <Pressable
+                    style={[
+                      styles.modalArea,
+
+                      selected &&
+                      styles.modalAreaSelected,
+                    ]}
+
+                    onPress={() =>
+                      setQuestionArea(
+                        item
+                      )
+                    }
+
+                    disabled={
+                      creatingQuestion
+                    }
+                  >
+
+                    <Text
+                      style={[
+                        styles.modalAreaText,
+
+                        selected &&
+                        styles.modalAreaTextSelected,
+                      ]}
+                    >
+                      {item}
+                    </Text>
+
+                  </Pressable>
+                );
+              }}
+            />
+
+            {/* CRIAR PERGUNTA */}
+
+            <Pressable
+              style={[
+                styles.createButton,
+
+                creatingQuestion &&
+                styles.disabledButton,
+              ]}
+
+              onPress={
+                handleCreateQuestion
+              }
+
+              disabled={
+                creatingQuestion
+              }
+            >
+
+              {creatingQuestion ? (
+                <>
+                  <ActivityIndicator
+                    color="#ffffff"
+                  />
+
+                  <Text
+                    style={
+                      styles.loadingButtonText
+                    }
+                  >
+                    A criar...
+                  </Text>
+                </>
+              ) : (
+                <Text
+                  style={
+                    styles.createButtonText
+                  }
+                >
+                  Criar pergunta
+                </Text>
+              )}
+
+            </Pressable>
+
+            {/* CANCELAR */}
+
+            <Pressable
+              style={
+                styles.cancelButton
+              }
+
+              onPress={
+                closeCreateModal
+              }
+
+              disabled={
+                creatingQuestion
+              }
+            >
+
+              <Text
+                style={
+                  styles.cancelButtonText
+                }
+              >
+                Cancelar
+              </Text>
+
+            </Pressable>
+
+          </View>
+
+        </View>
+
+      </Modal>
 
     </LinearGradient>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+// ========================================
+// STYLES
+// ========================================
 
-  list: {
-    paddingHorizontal: 20,
-    paddingTop: 100,
-    paddingBottom: 120,
-  },
+const styles =
+  StyleSheet.create({
 
-  questionCard: {
-    width: "100%",
+    // ------------------------------------
+    // CONTAINER
+    // ------------------------------------
 
-    padding: 20,
-    marginBottom: 16,
+    container: {
+      flex: 1,
+    },
 
-    borderRadius: 20,
+    // ------------------------------------
+    // LISTA
+    // ------------------------------------
 
-    borderColor: "#888888",
-    borderWidth: 3,
+    list: {
+      paddingHorizontal: 20,
 
-    backgroundColor: "#2738a4ff",
-  },
+      paddingTop: 150,
 
-  question: {
-    fontSize: 17,
-    fontWeight: "600",
+      paddingBottom: 40,
+    },
 
-    color: "#ffffffff",
+    // ------------------------------------
+    // CARD DA PERGUNTA
+    // ------------------------------------
 
-    marginBottom: 12,
-  },
+    questionCard: {
+      width: "100%",
 
-  content: {
-    fontSize: 14,
-    lineHeight: 21,
+      padding: 20,
 
-    color: "#cccccc",
-  },
+      marginBottom: 16,
 
-  info: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+      borderRadius: 20,
 
-    marginTop: 15,
-  },
+      borderColor: "#888888",
 
-  author: {
-    fontSize: 12,
-    color: "#aaaaaa",
-  },
+      borderWidth: 3,
 
-  area: {
-    fontSize: 12,
-    color: "#dddddd",
+      backgroundColor:
+        "#2738a4ff",
+    },
 
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    question: {
+      fontSize: 17,
 
-    borderRadius: 12,
+      fontWeight: "600",
 
-    backgroundColor: "#414fc0",
-  },
+      color: "#ffffffff",
 
-  answersCount: {
-    marginTop: 10,
+      marginBottom: 12,
+    },
 
-    fontSize: 12,
-    color: "#aaaaaa",
-  },
+    content: {
+      fontSize: 14,
 
-  // Botão "Fazer pergunta"
-  askButton: {
-    height: 58,
+      lineHeight: 21,
 
-    marginTop: 4,
-    marginBottom: 20,
+      color: "#cccccc",
+    },
 
-    borderRadius: 29,
+    info: {
+      flexDirection: "row",
 
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+      justifyContent:
+        "space-between",
 
-    backgroundColor: "#ffeeeeff",
-  },
+      alignItems: "center",
 
-  plus: {
-    fontSize: 28,
-    fontWeight: "400",
+      marginTop: 15,
+    },
 
-    color: "#323232ff",
+    author: {
+      fontSize: 12,
 
-    marginRight: 8,
-    marginTop: -2,
-  },
+      color: "#aaaaaa",
+    },
 
-  askButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
+    area: {
+      fontSize: 12,
 
-    color: "#323232ff",
-  },
+      color: "#dddddd",
 
-  // TopBar
-  topBar: {
-    position: "absolute",
+      paddingHorizontal: 10,
 
-    top: 0,
-    left: 0,
-    right: 0,
+      paddingVertical: 4,
 
-    height: 80,
+      borderRadius: 12,
 
-    paddingHorizontal: 20,
-    paddingTop: 20,
+      backgroundColor:
+        "#414fc0",
+    },
 
-    flexDirection: "row",
-    alignItems: "center",
+    answersCount: {
+      marginTop: 10,
 
-    backgroundColor: "#aab6e3ff",
-  },
+      fontSize: 12,
 
-  searchInput: {
-    flex: 1,
+      color: "#aaaaaa",
+    },
 
-    height: 48,
+    // ------------------------------------
+    // BOTÃO FAZER PERGUNTA
+    // ------------------------------------
 
-    paddingHorizontal: 18,
+    askButton: {
+      width: "100%",
 
-    borderRadius: 24,
+      height: 58,
 
-    backgroundColor: "#ffeeeeff",
+      marginTop: 10,
 
-    color: "#323232ff",
+      marginBottom: 100,
 
-    fontSize: 15,
-  },
+      borderRadius: 29,
 
-  searchButton: {
-    width: 48,
-    height: 48,
+      flexDirection: "row",
 
-    marginLeft: 8,
+      alignItems: "center",
 
-    borderRadius: 24,
+      justifyContent:
+        "center",
 
-    alignItems: "center",
-    justifyContent: "center",
+      backgroundColor:
+        "#ffeeeeff",
 
-    backgroundColor: "#ffeeeeff",
-  },
+      elevation: 8,
 
-  searchButtonText: {
-    fontSize: 20,
-  },
+      shadowColor:
+        "#000000",
 
-  // Loading
-  center: {
-    flex: 1,
+      shadowOffset: {
+        width: 0,
+        height: 3,
+      },
 
-    alignItems: "center",
-    justifyContent: "center",
+      shadowOpacity: 0.25,
 
-    padding: 20,
-  },
+      shadowRadius: 5,
+    },
 
-  loadingText: {
-    marginTop: 10,
+    plus: {
+      fontSize: 28,
 
-    fontSize: 14,
-    color: "#ffffff",
-  },
+      fontWeight: "400",
 
-  // Erro
-  errorText: {
-    fontSize: 15,
+      color: "#323232ff",
 
-    color: "#ffffff",
+      marginRight: 8,
 
-    textAlign: "center",
+      marginTop: -2,
+    },
 
-    marginBottom: 20,
-  },
+    askButtonText: {
+      fontSize: 16,
 
-  retryButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+      fontWeight: "600",
 
-    borderRadius: 20,
+      color: "#323232ff",
+    },
 
-    backgroundColor: "#ffeeeeff",
-  },
+    // ------------------------------------
+    // TOP BAR
+    // ------------------------------------
 
-  retryButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
+    topBar: {
+      position: "absolute",
 
-    color: "#323232ff",
-  },
+      top: 0,
 
-  // Sem resultados
-  emptyContainer: {
-    alignItems: "center",
+      left: 0,
 
-    paddingTop: 40,
-  },
+      right: 0,
 
-  emptyText: {
-    fontSize: 15,
+      height: 130,
 
-    color: "#ffffff",
+      paddingHorizontal: 20,
 
-    textAlign: "center",
-  },
-});
+      paddingTop: 20,
+
+      backgroundColor:
+        "#aab6e3ff",
+    },
+
+    searchRow: {
+      flexDirection: "row",
+
+      alignItems: "center",
+    },
+
+    searchInput: {
+      flex: 1,
+
+      height: 48,
+
+      paddingHorizontal: 18,
+
+      borderRadius: 24,
+
+      backgroundColor:
+        "#ffeeeeff",
+
+      color: "#323232ff",
+
+      fontSize: 15,
+    },
+
+    searchButton: {
+      width: 48,
+
+      height: 48,
+
+      marginLeft: 8,
+
+      borderRadius: 24,
+
+      alignItems: "center",
+
+      justifyContent:
+        "center",
+
+      backgroundColor:
+        "#ffeeeeff",
+    },
+
+    searchButtonText: {
+      fontSize: 20,
+    },
+
+    // ------------------------------------
+    // FILTROS DE ÁREA
+    // ------------------------------------
+
+    areaFilters: {
+      paddingTop: 20,
+
+      paddingBottom: 4,
+    },
+
+    areaFilter: {
+      paddingHorizontal: 19,
+
+      paddingVertical: 10,
+
+      marginRight: 8,
+
+      borderRadius: 18,
+
+      backgroundColor:
+        "#d7dcf2",
+    },
+
+    areaFilterSelected: {
+      backgroundColor:
+        "#2738a4ff",
+    },
+
+    areaFilterText: {
+      fontSize: 12,
+
+      fontWeight: "500",
+
+      color: "#323232",
+    },
+
+    areaFilterTextSelected: {
+      color: "#ffffff",
+
+      fontWeight: "600",
+    },
+
+    // ------------------------------------
+    // MODAL
+    // ------------------------------------
+
+    modalBackground: {
+      flex: 1,
+
+      alignItems: "center",
+
+      justifyContent:
+        "center",
+
+      padding: 20,
+
+      backgroundColor:
+        "rgba(0, 0, 0, 0.65)",
+    },
+
+    modal: {
+      width: "100%",
+
+      maxWidth: 430,
+
+      padding: 24,
+
+      borderRadius: 24,
+
+      backgroundColor:
+        "#3030a1ff",
+
+      borderWidth: 2,
+
+      borderColor:
+        "#b7bccbff",
+    },
+
+    modalHeader: {
+      flexDirection: "row",
+
+      alignItems: "center",
+
+      justifyContent:
+        "space-between",
+
+      marginBottom: 20,
+    },
+
+    modalTitle: {
+      fontSize: 24,
+
+      fontWeight: "600",
+
+      color: "#ffffff",
+    },
+
+    closeButton: {
+      fontSize: 32,
+
+      lineHeight: 32,
+
+      color: "#ffffff",
+    },
+
+    // ------------------------------------
+    // INPUTS
+    // ------------------------------------
+
+    inputLabel: {
+      fontSize: 13,
+
+      fontWeight: "600",
+
+      color: "#ffffff",
+
+      marginBottom: 7,
+    },
+
+    input: {
+      width: "100%",
+
+      height: 50,
+
+      paddingHorizontal: 16,
+
+      marginBottom: 16,
+
+      borderRadius: 12,
+
+      borderWidth: 1,
+
+      borderColor: "#888888",
+
+      backgroundColor:
+        "#4d49a7ff",
+
+      color: "#ffffff",
+
+      fontSize: 14,
+    },
+
+    contentInput: {
+      height: 110,
+
+      paddingTop: 14,
+    },
+
+    // ------------------------------------
+    // ÁREAS DO MODAL
+    // ------------------------------------
+
+    modalAreas: {
+      paddingBottom: 5,
+    },
+
+    modalArea: {
+      paddingHorizontal: 14,
+
+      paddingVertical: 8,
+
+      marginRight: 8,
+
+      borderRadius: 18,
+
+      backgroundColor:
+        "#d7dcf2",
+    },
+
+    modalAreaSelected: {
+      backgroundColor:
+        "#0037ffff",
+    },
+
+    modalAreaText: {
+      fontSize: 12,
+
+      fontWeight: "500",
+
+      color: "#323232",
+    },
+
+    modalAreaTextSelected: {
+      color: "#ffffff",
+
+      fontWeight: "600",
+    },
+
+    // ------------------------------------
+    // BOTÃO CRIAR
+    // ------------------------------------
+
+    createButton: {
+      width: "100%",
+
+      height: 52,
+
+      marginTop: 20,
+
+      borderRadius: 26,
+
+      flexDirection: "row",
+
+      alignItems: "center",
+
+      justifyContent:
+        "center",
+
+      backgroundColor:
+        "#0037ffff",
+    },
+
+    createButtonText: {
+      fontSize: 15,
+
+      fontWeight: "600",
+
+      color: "#ffffff",
+    },
+
+    loadingButtonText: {
+      marginLeft: 10,
+
+      fontSize: 14,
+
+      fontWeight: "600",
+
+      color: "#ffffff",
+    },
+
+    disabledButton: {
+      opacity: 0.6,
+    },
+
+    // ------------------------------------
+    // CANCELAR
+    // ------------------------------------
+
+    cancelButton: {
+      alignItems: "center",
+
+      marginTop: 16,
+    },
+
+    cancelButtonText: {
+      fontSize: 14,
+
+      color: "#eeeeee",
+    },
+
+    // ------------------------------------
+    // LOADING
+    // ------------------------------------
+
+    center: {
+      flex: 1,
+
+      alignItems: "center",
+
+      justifyContent:
+        "center",
+
+      padding: 20,
+    },
+
+    loadingText: {
+      marginTop: 10,
+
+      fontSize: 14,
+
+      color: "#ffffff",
+    },
+
+    // ------------------------------------
+    // ERRO
+    // ------------------------------------
+
+    errorText: {
+      fontSize: 15,
+
+      color: "#ffffff",
+
+      textAlign: "center",
+
+      marginBottom: 20,
+    },
+
+    retryButton: {
+      paddingHorizontal: 20,
+
+      paddingVertical: 12,
+
+      borderRadius: 20,
+
+      backgroundColor:
+        "#ffeeeeff",
+    },
+
+    retryButtonText: {
+      fontSize: 14,
+
+      fontWeight: "600",
+
+      color: "#323232ff",
+    },
+
+    // ------------------------------------
+    // VAZIO
+    // ------------------------------------
+
+    emptyContainer: {
+      alignItems: "center",
+
+      paddingTop: 40,
+    },
+
+    emptyText: {
+      fontSize: 15,
+
+      color: "#ffffff",
+
+      textAlign: "center",
+    },
+  });

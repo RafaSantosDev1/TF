@@ -19,6 +19,8 @@ import {
     updateUser,
 } from "../services/userService";
 
+import { getCurrentUserId } from "../services/sessionService";
+
 import {
     Area,
     UpdateUserRequest,
@@ -35,13 +37,20 @@ const AVAILABLE_AREAS: Area[] = [
 export default function Profile() {
 
     /*
-     * ID enviado pelo _layout.tsx
+     * ID DO UTILIZADOR ATUAL
      *
-     * /profile?userId=ee9d8a19-...
+     * A fonte principal é a sessão local
+     * (@current_user_id), criada no registo
+     * com o user.id devolvido pelo POST /users.
+     *
+     * Os route params são apenas um fallback
+     * temporário de navegação.
      */
-    const { userId } = useLocalSearchParams<{
-        userId: string;
+    const { userId: routeUserId } = useLocalSearchParams<{
+        userId?: string;
     }>();
+
+    const [userId, setUserId] = useState<string | null>(null);
 
     const [user, setUser] = useState<User | null>(null);
 
@@ -61,6 +70,29 @@ export default function Profile() {
 
     const [showAreas, setShowAreas] =
         useState(false);
+
+    /*
+     * Recuperar o ID da sessão atual
+     */
+    useEffect(() => {
+        const loadCurrentUserId = async () => {
+            const currentUserId =
+                await getCurrentUserId();
+
+            console.log(
+                "Sessão atual:",
+                currentUserId
+            );
+
+            setUserId(
+                currentUserId ??
+                    routeUserId ??
+                    null
+            );
+        };
+
+        loadCurrentUserId();
+    }, [routeUserId]);
 
     /*
      * Buscar o utilizador quando o Profile abre

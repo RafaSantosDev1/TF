@@ -13,6 +13,7 @@ import {
 import BottomBar from "./components/BottomBar";
 
 import { createUser } from "../services/userService";
+import { setCurrentUserId } from "../services/sessionService";
 import { CreateUserRequest } from "../services/types";
 
 export default function Layout() {
@@ -53,6 +54,17 @@ export default function Layout() {
             console.log("Utilizador criado:", user);
 
             /*
+             * Guardar o ID do utilizador que acabou
+             * de criar a conta como sessão atual.
+             *
+             * Este ID é a identidade da aplicação
+             * até fazer logout.
+             */
+            await setCurrentUserId(user.id);
+
+            console.log("Sessão atual:", user.id);
+
+            /*
              * Fechar modal
              */
             setShowRegister(false);
@@ -64,15 +76,14 @@ export default function Layout() {
             setBio("");
 
             /*
-             * Ir para o perfil e enviar o ID
-             * do utilizador que acabou de ser criado.
+             * Ir para o perfil.
+             *
+             * O ID da sessão fica disponível
+             * em toda a aplicação, sem ser
+             * necessário passar o userId
+             * em todas as rotas.
              */
-            router.push({
-                pathname: "/profile",
-                params: {
-                    userId: user.id,
-                },
-            });
+            router.push("/profile");
 
         } catch (error: any) {
             console.error(

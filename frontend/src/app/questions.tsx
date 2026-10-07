@@ -5,21 +5,48 @@ import {
     View,
     FlatList,
     ActivityIndicator,
+    Pressable,
 } from "react-native";
 import { useEffect, useState } from "react";
 
 import { getAllQuestions } from "../services/questionService";
-import { Question } from "../services/types";
+import { getCurrentUserId } from "../services/sessionService";
+import { Question, Area } from "../services/types";
+
+const AREAS: ("Todas" | Area)[] = [
+    "Todas",
+    "Voz",
+    "Linguagem",
+    "Fala",
+    "Fluencia",
+];
 
 export default function Questions() {
+    /*
+     * ID DO UTILIZADOR ATUAL
+     *
+     * A fonte principal da identidade é a
+     * sessão local (@current_user_id),
+     * criada no registo com o user.id
+     * devolvido pelo POST /users.
+     */
+    const [userId, setUserId] = useState<string | null>(null);
+
+    const [loadingUser, setLoadingUser] = useState(true);
+
     const [questions, setQuestions] = useState<Question[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        loadQuestions();
-    }, []);
+    /*
+     * FILTRO DE ÁREA
+     */
+    const [selectedArea, setSelectedArea] =
+        useState<"Todas" | Area>("Todas");
 
+    /*
+     * GET /api/questions
+     */
     const loadQuestions = async () => {
         try {
             setLoading(true);
@@ -36,6 +63,71 @@ export default function Questions() {
         }
     };
 
+    /*
+     * CARREGAR SESSÃO E PERGUNTAS
+     */
+    useEffect(() => {
+        const initialize = async () => {
+            try {
+                const currentUserId =
+                    await getCurrentUserId();
+
+                console.log(
+                    "Sessão atual:",
+                    currentUserId
+                );
+
+                setUserId(currentUserId);
+            } catch (error) {
+                console.error(
+                    "Erro ao carregar sessão:",
+                    error
+                );
+            } finally {
+                setLoadingUser(false);
+            }
+
+            await loadQuestions();
+        };
+
+        initialize();
+    }, []);
+
+    /*
+     * FILTRAGEM
+     *
+     * Primeiro verifica se a pergunta pertence
+     * ao utilizador da sessão.
+     *
+     * Depois aplica o filtro de área.
+     *
+     * "Todas" significa todas as perguntas
+     * do utilizador atual.
+     */
+    const filteredQuestions = questions.filter(
+        (question) => {
+            if (!userId) {
+                return false;
+            }
+
+            if (question.authorId !== userId) {
+                return false;
+            }
+
+            if (
+                selectedArea !== "Todas" &&
+                question.area !== selectedArea
+            ) {
+                return false;
+            }
+
+            return true;
+        }
+    );
+
+    /*
+     * FORMATAR DATA
+     */
     const formatDate = (date: string) => {
         const dateObject = new Date(date);
 
@@ -55,13 +147,51 @@ export default function Questions() {
         >
             <View style={styles.content}>
 
-                {/* Título */}
+                {/* TÍTULO */}
                 <Text style={styles.pageTitle}>
                     Minhas Questões
                 </Text>
 
-                {/* Loading */}
-                {loading && (
+                {/* FILTRO DE ÁREA */}
+                <FlatList
+                    horizontal
+                    data={AREAS}
+                    keyExtractor={(item) => item}
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={
+                        styles.areaFilters
+                    }
+                    renderItem={({ item }) => {
+                        const selected =
+                            selectedArea === item;
+
+                        return (
+                            <Pressable
+                                style={[
+                                    styles.areaFilter,
+                                    selected &&
+                                    styles.areaFilterSelected,
+                                ]}
+                                onPress={() =>
+                                    setSelectedArea(item)
+                                }
+                            >
+                                <Text
+                                    style={[
+                                        styles.areaFilterText,
+                                        selected &&
+                                        styles.areaFilterTextSelected,
+                                    ]}
+                                >
+                                    {item}
+                                </Text>
+                            </Pressable>
+                        );
+                    }}
+                />
+
+                {/* LOADING */}
+                {loading || loadingUser ? (
                     <View style={styles.center}>
                         <ActivityIndicator
                             size="large"
@@ -72,80 +202,131 @@ export default function Questions() {
                             A carregar questões...
                         </Text>
                     </View>
-                )}
-
-                {/* Erro */}
-                {!loading && error && (
+                ) : error ? (
+                    /* ERRO */
                     <View style={styles.center}>
                         <Text style={styles.errorText}>
                             {error}
                         </Text>
                     </View>
-                )}
-
-                {/* Lista */}
-                {!loading && !error && (
+                ) : !userId ? (
+                    /* SEM SESSÃO */
+                    <View style={styles.center}>
+                        <Text style={styles.errorText}>
+                            Não foi possível identificar o
+                            utilizador atual.
+                        </Text>
+                    </View>
+                ) : (
+                    /* LISTA DE PERGUNTAS */
                     <FlatList
-                        data={questions}
+                        data={filteredQuestions}
                         keyExtractor={(item) => item.id}
                         showsVerticalScrollIndicator={false}
                         contentContainerStyle={styles.list}
                         renderItem={({ item }) => {
-
-                            // A API devolve um array de respostas.
-                            // Para manter o design atual,
-                            // mostramos a primeira resposta.
-                            const answer = item.answers?.[0] ?? null;
+                            /*
+                             * A API devolve um array de respostas.
+                             *
+                             * Para manter o design atual,
+                             * mostramos a primeira resposta.
+                             */
+                            const answer =
+                                item.answers?.[0] ?? null;
 
                             return (
-                                <View style={styles.questionContainer}>
-
-                                    {/* Questão */}
-                                    <View style={styles.questionBox}>
-
-                                        <Text style={styles.questionTitle}>
+                                <View
+                                    style={
+                                        styles.questionContainer
+                                    }
+                                >
+                                    {/* QUESTÃO */}
+                                    <View
+                                        style={
+                                            styles.questionBox
+                                        }
+                                    >
+                                        <Text
+                                            style={
+                                                styles.questionTitle
+                                            }
+                                        >
                                             Questão
                                         </Text>
 
-                                        <Text style={styles.date}>
-                                            {formatDate(item.createdAt)}
+                                        <Text
+                                            style={styles.date}
+                                        >
+                                            {formatDate(
+                                                item.createdAt
+                                            )}
                                         </Text>
 
-                                        <Text style={styles.question}>
+                                        <Text
+                                            style={
+                                                styles.question
+                                            }
+                                        >
                                             {item.title}
                                         </Text>
 
-                                        <Text style={styles.questionContent}>
+                                        <Text
+                                            style={
+                                                styles.questionContent
+                                            }
+                                        >
                                             {item.content}
                                         </Text>
 
-                                        <Text style={styles.author}>
-                                            Por: {item.authorName}
+                                        <Text
+                                            style={
+                                                styles.author
+                                            }
+                                        >
+                                            Por:{" "}
+                                            {item.authorName}
                                         </Text>
 
-                                        <Text style={styles.area}>
+                                        <Text
+                                            style={
+                                                styles.area
+                                            }
+                                        >
                                             Área: {item.area}
                                         </Text>
-
                                     </View>
 
-                                    {/* Resposta */}
-                                    <View style={styles.answerBox}>
-
-                                        <Text style={styles.answerTitle}>
+                                    {/* RESPOSTA */}
+                                    <View
+                                        style={
+                                            styles.answerBox
+                                        }
+                                    >
+                                        <Text
+                                            style={
+                                                styles.answerTitle
+                                            }
+                                        >
                                             Resposta
                                         </Text>
 
                                         {answer && (
-                                            <Text style={styles.date}>
-                                                {formatDate(answer.createdAt)}
+                                            <Text
+                                                style={
+                                                    styles.date
+                                                }
+                                            >
+                                                {formatDate(
+                                                    answer.createdAt
+                                                )}
                                             </Text>
                                         )}
 
                                         <Text
                                             style={[
                                                 styles.answer,
-                                                !answer && styles.noAnswer,
+                                                !answer &&
+                                                styles.noAnswer,
                                             ]}
                                         >
                                             {answer
@@ -154,26 +335,32 @@ export default function Questions() {
                                         </Text>
 
                                         {answer && (
-                                            <Text style={styles.author}>
-                                                Por: {answer.authorName}
+                                            <Text
+                                                style={
+                                                    styles.author
+                                                }
+                                            >
+                                                Por:{" "}
+                                                {answer.authorName}
                                             </Text>
                                         )}
-
                                     </View>
-
                                 </View>
                             );
                         }}
                         ListEmptyComponent={
                             <View style={styles.center}>
-                                <Text style={styles.emptyText}>
-                                    Não existem questões.
+                                <Text
+                                    style={styles.emptyText}
+                                >
+                                    {selectedArea !== "Todas"
+                                        ? "Nenhuma questão encontrada nesta área."
+                                        : "Não existem questões."}
                                 </Text>
                             </View>
                         }
                     />
                 )}
-
             </View>
         </LinearGradient>
     );
@@ -200,6 +387,7 @@ const styles = StyleSheet.create({
     },
 
     list: {
+        paddingTop: 0,
         paddingBottom: 120,
     },
 
@@ -212,7 +400,6 @@ const styles = StyleSheet.create({
         borderRadius: 20,
 
         backgroundColor: "#2738a4ff",
-
         borderColor: "#888888",
         borderWidth: 3,
     },
@@ -279,7 +466,6 @@ const styles = StyleSheet.create({
         width: "100%",
 
         marginTop: 14,
-
         paddingHorizontal: 14,
         paddingVertical: 12,
 
@@ -318,7 +504,6 @@ const styles = StyleSheet.create({
 
     loadingText: {
         marginTop: 10,
-
         fontSize: 14,
         color: "#ffffff",
     },
@@ -333,5 +518,46 @@ const styles = StyleSheet.create({
         fontSize: 15,
         color: "#ffffff",
         textAlign: "center",
+    },
+
+    /* ---------------------------------- */
+    /* FILTROS DE ÁREA */
+    /* ---------------------------------- */
+
+    areaFilters: {
+        paddingTop: 10,
+        paddingBottom: 10,
+    },
+
+    areaFilter: {
+        width: 70,
+        height: 40,
+
+        alignItems: "center",
+        justifyContent: "center",
+
+        marginRight: 8,
+
+        borderRadius: 18,
+
+        backgroundColor: "#d7dcf2",
+    },
+
+    areaFilterSelected: {
+        backgroundColor: "#2738a4ff",
+    },
+
+    areaFilterText: {
+        fontSize: 12,
+        fontWeight: "500",
+
+        color: "#323232",
+
+        textAlign: "center",
+    },
+
+    areaFilterTextSelected: {
+        color: "#ffffff",
+        fontWeight: "600",
     },
 });

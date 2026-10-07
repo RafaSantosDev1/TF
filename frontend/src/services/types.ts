@@ -32,6 +32,10 @@ export interface Question {
   area: Area;
   acceptedAnswerId: string | null;
   answersCount: number;
+
+  // NOVO
+  likesCount: number;
+
   answers: Answer[];
 }
 
