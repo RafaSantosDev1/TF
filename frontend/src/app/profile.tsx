@@ -86,8 +86,8 @@ export default function Profile() {
 
             setUserId(
                 currentUserId ??
-                    routeUserId ??
-                    null
+                routeUserId ??
+                null
             );
         };
 
