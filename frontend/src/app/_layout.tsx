@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import {
+    Alert,
     Modal,
     Pressable,
     StyleSheet,
@@ -8,27 +9,103 @@ import {
     TextInput,
     View,
 } from "react-native";
+
 import BottomBar from "./components/BottomBar";
+
+import { createUser } from "../services/userService";
+import { CreateUserRequest } from "../services/types";
 
 export default function Layout() {
     const [showRegister, setShowRegister] = useState(true);
 
+    const [name, setName] = useState("");
+    const [bio, setBio] = useState("");
+
+    const [loading, setLoading] = useState(false);
+
+    const handleRegister = async () => {
+        if (!name.trim()) {
+            Alert.alert(
+                "Campo obrigatório",
+                "Preenche o teu nome."
+            );
+            return;
+        }
+
+        try {
+            setLoading(true);
+
+            const data: CreateUserRequest = {
+                name: name.trim(),
+                profileImage: null,
+                bio: bio.trim() || null,
+                areas: [],
+            };
+
+            /*
+             * POST /api/users
+             *
+             * O backend devolve o utilizador criado,
+             * incluindo o ID.
+             */
+            const user = await createUser(data);
+
+            console.log("Utilizador criado:", user);
+
+            /*
+             * Fechar modal
+             */
+            setShowRegister(false);
+
+            /*
+             * Limpar formulário
+             */
+            setName("");
+            setBio("");
+
+            /*
+             * Ir para o perfil e enviar o ID
+             * do utilizador que acabou de ser criado.
+             */
+            router.push({
+                pathname: "/profile",
+                params: {
+                    userId: user.id,
+                },
+            });
+
+        } catch (error: any) {
+            console.error(
+                "Erro ao criar utilizador:",
+                error
+            );
+
+            const message =
+                error?.response?.data?.message ??
+                "Não foi possível criar a conta.";
+
+            Alert.alert(
+                "Erro",
+                message
+            );
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <View style={styles.container}>
 
-            {/* Páginas da aplicação */}
             <Stack
                 screenOptions={{
                     headerShown: false,
                 }}
             />
 
-            {/* Bottom Bar */}
             <View style={styles.bottomBar}>
                 <BottomBar />
             </View>
 
-            {/* Modal inicial */}
             <Modal
                 visible={showRegister}
                 transparent
@@ -38,64 +115,81 @@ export default function Layout() {
 
                     <View style={styles.modal}>
 
-                        {/* Título */}
                         <Text style={styles.title}>
                             Bem-vindo!
                         </Text>
 
                         <Text style={styles.subtitle}>
-                            Cria a tua conta para começares a utilizar
-                            a aplicação.
+                            Cria a tua conta para começares
+                            a utilizar a aplicação.
                         </Text>
 
-                        {/* Nome */}
+                        {/* NOME */}
                         <TextInput
                             style={styles.input}
                             placeholder="Nome"
                             placeholderTextColor="#888888"
+                            value={name}
+                            onChangeText={setName}
+                            editable={!loading}
+                            autoCapitalize="words"
                         />
 
-                        {/* Email */}
+                        {/* BIO */}
                         <TextInput
-                            style={styles.input}
-                            placeholder="Email"
+                            style={[
+                                styles.input,
+                                styles.bioInput,
+                            ]}
+                            placeholder="Bio (opcional)"
                             placeholderTextColor="#888888"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
+                            value={bio}
+                            onChangeText={setBio}
+                            editable={!loading}
+                            multiline
+                            textAlignVertical="top"
                         />
 
-                        {/* Palavra-passe */}
-                        <TextInput
-                            style={styles.input}
-                            placeholder="Palavra-passe"
-                            placeholderTextColor="#888888"
-                            secureTextEntry
-                        />
-
-                        {/* Criar conta */}
+                        {/* CRIAR CONTA */}
                         <Pressable
-                            style={styles.registerButton}
-                            onPress={() => setShowRegister(false)}
+                            style={[
+                                styles.registerButton,
+                                loading &&
+                                styles.disabledButton,
+                            ]}
+                            onPress={handleRegister}
+                            disabled={loading}
                         >
-                            <Text style={styles.registerButtonText}>
-                                Criar conta
+                            <Text
+                                style={
+                                    styles.registerButtonText
+                                }
+                            >
+                                {loading
+                                    ? "A criar conta..."
+                                    : "Criar conta"}
                             </Text>
                         </Pressable>
 
-                        {/* Já tenho conta */}
+                        {/* LOGIN */}
                         <Pressable
                             style={styles.loginButton}
-                            onPress={() => setShowRegister(false)}
+                            onPress={() =>
+                                setShowRegister(false)
+                            }
+                            disabled={loading}
                         >
                             <Text style={styles.loginText}>
                                 Já tenho uma conta
                             </Text>
                         </Pressable>
 
-                        {/* Política de privacidade */}
                         <Text style={styles.privacyText}>
-                            Ao criar uma conta, concordas com a nossa{" "}
-                            <Text style={styles.privacyLink}>
+                            Ao criar uma conta, concordas com
+                            a nossa{" "}
+                            <Text
+                                style={styles.privacyLink}
+                            >
                                 Política de Privacidade
                             </Text>
                             .
@@ -122,33 +216,22 @@ const styles = StyleSheet.create({
         bottom: 0,
     },
 
-    /* Fundo do modal */
-
     modalBackground: {
         flex: 1,
         alignItems: "center",
         justifyContent: "center",
-
         padding: 24,
-
         backgroundColor: "rgba(0, 0, 0, 0.60)",
     },
-
-    /* Caixa */
 
     modal: {
         width: "100%",
         maxWidth: 420,
-
         padding: 26,
-
         borderRadius: 24,
-
         backgroundColor: "#3030a1ff",
-
         borderWidth: 2,
         borderColor: "#b7bccbff",
-
         shadowColor: "#000000",
         shadowOffset: {
             width: 0,
@@ -156,17 +239,13 @@ const styles = StyleSheet.create({
         },
         shadowOpacity: 0.25,
         shadowRadius: 15,
-
         elevation: 10,
     },
-
-    /* Título */
 
     title: {
         fontSize: 30,
         fontWeight: "600",
         color: "#ffffffff",
-
         marginBottom: 8,
     },
 
@@ -174,60 +253,49 @@ const styles = StyleSheet.create({
         fontSize: 14,
         lineHeight: 20,
         color: "#cccccc",
-
         marginBottom: 24,
     },
-
-    /* Inputs */
 
     input: {
         width: "100%",
         height: 50,
-
         paddingHorizontal: 16,
-
         marginBottom: 12,
-
         borderRadius: 12,
-
         borderWidth: 1,
         borderColor: "#888888",
-
         backgroundColor: "#4d49a7ff",
-
         color: "#ffffffff",
-
         fontSize: 14,
     },
 
-    /* Botão criar conta */
+    bioInput: {
+        height: 90,
+        paddingTop: 14,
+    },
 
     registerButton: {
         width: "100%",
         height: 52,
-
         marginTop: 8,
-
         borderRadius: 26,
-
         alignItems: "center",
         justifyContent: "center",
-
         backgroundColor: "#0037ffff",
+    },
+
+    disabledButton: {
+        opacity: 0.6,
     },
 
     registerButtonText: {
         fontSize: 15,
         fontWeight: "600",
-
         color: "#ffffffff",
     },
 
-    /* Login */
-
     loginButton: {
         alignItems: "center",
-
         marginTop: 18,
     },
 
@@ -236,16 +304,11 @@ const styles = StyleSheet.create({
         color: "#eeeeee",
     },
 
-    /* Política */
-
     privacyText: {
         marginTop: 22,
-
         fontSize: 11,
         lineHeight: 17,
-
         textAlign: "center",
-
         color: "#999999",
     },
 
