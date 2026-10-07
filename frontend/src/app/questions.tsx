@@ -22,52 +22,85 @@ const AREAS: ("Todas" | Area)[] = [
 ];
 
 export default function Questions() {
-    /*
-     * ID DO UTILIZADOR ATUAL
-     *
-     * A fonte principal da identidade é a
-     * sessão local (@current_user_id),
-     * criada no registo com o user.id
-     * devolvido pelo POST /users.
-     */
-    const [userId, setUserId] = useState<string | null>(null);
+    // ========================================
+    // UTILIZADOR ATUAL
+    // ========================================
 
-    const [loadingUser, setLoadingUser] = useState(true);
+    const [userId, setUserId] =
+        useState<string | null>(null);
 
-    const [questions, setQuestions] = useState<Question[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [loadingUser, setLoadingUser] =
+        useState(true);
 
-    /*
-     * FILTRO DE ÁREA
-     */
+    // ========================================
+    // QUESTÕES
+    // ========================================
+
+    const [questions, setQuestions] =
+        useState<Question[]>([]);
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [error, setError] =
+        useState<string | null>(null);
+
+    // ========================================
+    // FILTRO DE ÁREA
+    // ========================================
+
     const [selectedArea, setSelectedArea] =
         useState<"Todas" | Area>("Todas");
 
-    /*
-     * GET /api/questions
-     */
+    // ========================================
+    // LIKES LOCAIS
+    // ========================================
+
+    const [likedQuestions, setLikedQuestions] =
+        useState<Record<string, boolean>>({});
+
+    // ========================================
+    // CARREGAR QUESTÕES
+    // ========================================
+
     const loadQuestions = async () => {
         try {
             setLoading(true);
             setError(null);
 
-            const data = await getAllQuestions();
+            const data =
+                await getAllQuestions();
+
+            console.log(
+                "Questões carregadas:",
+                data
+            );
 
             setQuestions(data);
         } catch (error) {
-            console.error("Erro ao carregar questões:", error);
-            setError("Não foi possível carregar as questões.");
+            console.error(
+                "Erro ao carregar questões:",
+                error
+            );
+
+            setError(
+                "Não foi possível carregar as questões."
+            );
         } finally {
             setLoading(false);
         }
     };
 
-    /*
-     * CARREGAR SESSÃO E PERGUNTAS
-     */
+    // ========================================
+    // CARREGAR UTILIZADOR E QUESTÕES
+    // ========================================
+
     useEffect(() => {
         const initialize = async () => {
+            // --------------------------------
+            // UTILIZADOR
+            // --------------------------------
+
             try {
                 const currentUserId =
                     await getCurrentUserId();
@@ -77,7 +110,9 @@ export default function Questions() {
                     currentUserId
                 );
 
-                setUserId(currentUserId);
+                setUserId(
+                    currentUserId ?? null
+                );
             } catch (error) {
                 console.error(
                     "Erro ao carregar sessão:",
@@ -87,32 +122,57 @@ export default function Questions() {
                 setLoadingUser(false);
             }
 
+            // --------------------------------
+            // QUESTÕES
+            // --------------------------------
+
             await loadQuestions();
         };
 
         initialize();
     }, []);
 
-    /*
-     * FILTRAGEM
-     *
-     * Primeiro verifica se a pergunta pertence
-     * ao utilizador da sessão.
-     *
-     * Depois aplica o filtro de área.
-     *
-     * "Todas" significa todas as perguntas
-     * do utilizador atual.
-     */
-    const filteredQuestions = questions.filter(
-        (question) => {
+    // ========================================
+    // LIKE
+    // ========================================
+
+    const toggleLike = (
+        questionId: string
+    ) => {
+        setLikedQuestions((current) => ({
+            ...current,
+            [questionId]:
+                !current[questionId],
+        }));
+    };
+
+    // ========================================
+    // FILTRAGEM
+    // ========================================
+
+    const filteredQuestions =
+        questions.filter((question) => {
+            // --------------------------------
+            // VERIFICAR UTILIZADOR
+            // --------------------------------
+
             if (!userId) {
                 return false;
             }
 
-            if (question.authorId !== userId) {
+            // --------------------------------
+            // APENAS QUESTÕES DO UTILIZADOR
+            // --------------------------------
+
+            if (
+                question.authorId !== userId
+            ) {
                 return false;
             }
+
+            // --------------------------------
+            // FILTRO DE ÁREA
+            // --------------------------------
 
             if (
                 selectedArea !== "Todas" &&
@@ -122,48 +182,84 @@ export default function Questions() {
             }
 
             return true;
-        }
-    );
-
-    /*
-     * FORMATAR DATA
-     */
-    const formatDate = (date: string) => {
-        const dateObject = new Date(date);
-
-        return dateObject.toLocaleDateString("pt-PT", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
         });
+
+    // ========================================
+    // FORMATAR DATA
+    // ========================================
+
+    const formatDate = (
+        date: string
+    ) => {
+        const dateObject =
+            new Date(date);
+
+        return dateObject.toLocaleDateString(
+            "pt-PT",
+            {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+            }
+        );
     };
+
+    // ========================================
+    // RENDER
+    // ========================================
 
     return (
         <LinearGradient
-            colors={["#bbc4e6ff", "#181698ff"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
+            colors={[
+                "#bbc4e6ff",
+                "#181698ff",
+            ]}
+            start={{
+                x: 0,
+                y: 0,
+            }}
+            end={{
+                x: 0,
+                y: 1,
+            }}
             style={styles.container}
         >
             <View style={styles.content}>
 
+                {/* ================================= */}
                 {/* TÍTULO */}
-                <Text style={styles.pageTitle}>
+                {/* ================================= */}
+
+                <Text
+                    style={
+                        styles.pageTitle
+                    }
+                >
                     Minhas Questões
                 </Text>
 
+                {/* ================================= */}
                 {/* FILTRO DE ÁREA */}
+                {/* ================================= */}
+
                 <FlatList
                     horizontal
                     data={AREAS}
-                    keyExtractor={(item) => item}
-                    showsHorizontalScrollIndicator={false}
+                    keyExtractor={(item) =>
+                        item
+                    }
+                    showsHorizontalScrollIndicator={
+                        false
+                    }
                     contentContainerStyle={
                         styles.areaFilters
                     }
-                    renderItem={({ item }) => {
+                    renderItem={({
+                        item,
+                    }) => {
                         const selected =
-                            selectedArea === item;
+                            selectedArea ===
+                            item;
 
                         return (
                             <Pressable
@@ -173,7 +269,9 @@ export default function Questions() {
                                     styles.areaFilterSelected,
                                 ]}
                                 onPress={() =>
-                                    setSelectedArea(item)
+                                    setSelectedArea(
+                                        item
+                                    )
                                 }
                             >
                                 <Text
@@ -190,49 +288,161 @@ export default function Questions() {
                     }}
                 />
 
+                {/* ================================= */}
                 {/* LOADING */}
-                {loading || loadingUser ? (
-                    <View style={styles.center}>
+                {/* ================================= */}
+
+                {loading ||
+                    loadingUser ? (
+                    <View
+                        style={
+                            styles.center
+                        }
+                    >
                         <ActivityIndicator
                             size="large"
                             color="#ffffff"
                         />
 
-                        <Text style={styles.loadingText}>
+                        <Text
+                            style={
+                                styles.loadingText
+                            }
+                        >
                             A carregar questões...
                         </Text>
                     </View>
+
                 ) : error ? (
+
+                    /* ================================= */
                     /* ERRO */
-                    <View style={styles.center}>
-                        <Text style={styles.errorText}>
+                    /* ================================= */
+
+                    <View
+                        style={
+                            styles.center
+                        }
+                    >
+                        <Text
+                            style={
+                                styles.errorText
+                            }
+                        >
                             {error}
                         </Text>
                     </View>
+
                 ) : !userId ? (
+
+                    /* ================================= */
                     /* SEM SESSÃO */
-                    <View style={styles.center}>
-                        <Text style={styles.errorText}>
-                            Não foi possível identificar o
+                    /* ================================= */
+
+                    <View
+                        style={
+                            styles.center
+                        }
+                    >
+                        <Text
+                            style={
+                                styles.errorText
+                            }
+                        >
+                            Não foi possível
+                            identificar o
                             utilizador atual.
                         </Text>
                     </View>
+
                 ) : (
-                    /* LISTA DE PERGUNTAS */
+
+                    /* ================================= */
+                    /* LISTA DE QUESTÕES */
+                    /* ================================= */
+
                     <FlatList
-                        data={filteredQuestions}
-                        keyExtractor={(item) => item.id}
-                        showsVerticalScrollIndicator={false}
-                        contentContainerStyle={styles.list}
-                        renderItem={({ item }) => {
-                            /*
-                             * A API devolve um array de respostas.
-                             *
-                             * Para manter o design atual,
-                             * mostramos a primeira resposta.
-                             */
+                        data={
+                            filteredQuestions
+                        }
+                        keyExtractor={(
+                            item
+                        ) => item.id}
+                        showsVerticalScrollIndicator={
+                            false
+                        }
+                        contentContainerStyle={
+                            styles.list
+                        }
+
+                        renderItem={({
+                            item,
+                        }) => {
+
+                            // ========================================
+                            // PRIMEIRA RESPOSTA
+                            // ========================================
+
                             const answer =
-                                item.answers?.[0] ?? null;
+                                item.answers?.[0] ??
+                                null;
+
+                            // ========================================
+                            // LIKES DAS RESPOSTAS
+                            // ========================================
+                            //
+                            // Soma os likes de todas as respostas.
+                            //
+                            // Se não existirem respostas:
+                            //
+                            // backendLikes = 0
+                            //
+                            // ========================================
+
+                            const backendLikes =
+                                item.answers?.reduce(
+                                    (
+                                        total,
+                                        answer
+                                    ) =>
+                                        total +
+                                        (
+                                            answer.likesCount ??
+                                            0
+                                        ),
+                                    0
+                                ) ?? 0;
+
+                            // ========================================
+                            // VERIFICAR LIKE LOCAL
+                            // ========================================
+
+                            const isLiked =
+                                likedQuestions[
+                                item.id
+                                ] ?? false;
+
+                            // ========================================
+                            // TOTAL DE LIKES
+                            // ========================================
+                            //
+                            // Exemplo:
+                            //
+                            // Backend = 5
+                            // Sem like local = 5
+                            //
+                            // Backend = 5
+                            // Com like local = 6
+                            //
+                            // ========================================
+
+                            const totalLikes =
+                                backendLikes +
+                                (
+                                    isLiked
+                                        ? 1
+                                        : 0
+                                );
 
                             return (
                                 <View
@@ -240,7 +450,11 @@ export default function Questions() {
                                         styles.questionContainer
                                     }
                                 >
+
+                                    {/* ================================= */}
                                     {/* QUESTÃO */}
+                                    {/* ================================= */}
+
                                     <View
                                         style={
                                             styles.questionBox
@@ -255,7 +469,9 @@ export default function Questions() {
                                         </Text>
 
                                         <Text
-                                            style={styles.date}
+                                            style={
+                                                styles.date
+                                            }
                                         >
                                             {formatDate(
                                                 item.createdAt
@@ -284,7 +500,9 @@ export default function Questions() {
                                             }
                                         >
                                             Por:{" "}
-                                            {item.authorName}
+                                            {
+                                                item.authorName
+                                            }
                                         </Text>
 
                                         <Text
@@ -292,11 +510,17 @@ export default function Questions() {
                                                 styles.area
                                             }
                                         >
-                                            Área: {item.area}
+                                            Área:{" "}
+                                            {
+                                                item.area
+                                            }
                                         </Text>
                                     </View>
 
+                                    {/* ================================= */}
                                     {/* RESPOSTA */}
+                                    {/* ================================= */}
+
                                     <View
                                         style={
                                             styles.answerBox
@@ -310,6 +534,10 @@ export default function Questions() {
                                             Resposta
                                         </Text>
 
+                                        {/* ================================= */}
+                                        {/* DATA DA RESPOSTA */}
+                                        {/* ================================= */}
+
                                         {answer && (
                                             <Text
                                                 style={
@@ -321,6 +549,10 @@ export default function Questions() {
                                                 )}
                                             </Text>
                                         )}
+
+                                        {/* ================================= */}
+                                        {/* CONTEÚDO DA RESPOSTA */}
+                                        {/* ================================= */}
 
                                         <Text
                                             style={[
@@ -334,6 +566,10 @@ export default function Questions() {
                                                 : "Sem resposta"}
                                         </Text>
 
+                                        {/* ================================= */}
+                                        {/* AUTOR DA RESPOSTA */}
+                                        {/* ================================= */}
+
                                         {answer && (
                                             <Text
                                                 style={
@@ -341,19 +577,81 @@ export default function Questions() {
                                                 }
                                             >
                                                 Por:{" "}
-                                                {answer.authorName}
+                                                {
+                                                    answer.authorName
+                                                }
                                             </Text>
                                         )}
+
+                                        {/* ================================= */}
+                                        {/* LIKES */}
+                                        {/* ================================= */}
+                                        <View
+                                            style={
+                                                styles.likeRow
+                                            }
+                                        >
+                                            <Pressable
+                                                style={
+                                                    styles.likeButton
+                                                }
+                                                onPress={() =>
+                                                    toggleLike(
+                                                        item.id
+                                                    )
+                                                }
+                                            >
+
+                                                {/* CORAÇÃO */}
+
+                                                <Text
+                                                    style={[
+                                                        styles.heart,
+                                                        isLiked &&
+                                                        styles.heartLiked,
+                                                    ]}
+                                                >
+                                                    {isLiked
+                                                        ? "❤️"
+                                                        : "♡"}
+                                                </Text>
+
+                                                {/* NÚMERO DE LIKES */}
+
+                                                <Text
+                                                    style={
+                                                        styles.likesCount
+                                                    }
+                                                >
+                                                    {
+                                                        totalLikes
+                                                    }
+                                                </Text>
+
+                                            </Pressable>
+                                        </View>
                                     </View>
                                 </View>
                             );
                         }}
+
+                        /* ================================= */
+                        /* LISTA VAZIA */
+                        /* ================================= */
+
                         ListEmptyComponent={
-                            <View style={styles.center}>
+                            <View
+                                style={
+                                    styles.center
+                                }
+                            >
                                 <Text
-                                    style={styles.emptyText}
+                                    style={
+                                        styles.emptyText
+                                    }
                                 >
-                                    {selectedArea !== "Todas"
+                                    {selectedArea !==
+                                        "Todas"
                                         ? "Nenhuma questão encontrada nesta área."
                                         : "Não existem questões."}
                                 </Text>
@@ -366,7 +664,16 @@ export default function Questions() {
     );
 }
 
+// ========================================
+// STYLES
+// ========================================
+
 const styles = StyleSheet.create({
+
+    // ====================================
+    // CONTAINER
+    // ====================================
+
     container: {
         flex: 1,
     },
@@ -375,6 +682,10 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: 24,
     },
+
+    // ====================================
+    // TÍTULO
+    // ====================================
 
     pageTitle: {
         marginTop: 30,
@@ -386,10 +697,18 @@ const styles = StyleSheet.create({
         color: "#ffffffff",
     },
 
+    // ====================================
+    // LISTA
+    // ====================================
+
     list: {
         paddingTop: 0,
         paddingBottom: 120,
     },
+
+    // ====================================
+    // CARD DA QUESTÃO
+    // ====================================
 
     questionContainer: {
         width: "100%",
@@ -403,6 +722,10 @@ const styles = StyleSheet.create({
         borderColor: "#888888",
         borderWidth: 3,
     },
+
+    // ====================================
+    // CAIXA DA QUESTÃO
+    // ====================================
 
     questionBox: {
         width: "100%",
@@ -462,6 +785,10 @@ const styles = StyleSheet.create({
         color: "#aaaaaa",
     },
 
+    // ====================================
+    // CAIXA DA RESPOSTA
+    // ====================================
+
     answerBox: {
         width: "100%",
 
@@ -495,45 +822,104 @@ const styles = StyleSheet.create({
         fontStyle: "italic",
     },
 
+    // ====================================
+    // LIKES
+    // ====================================
+
+    likeRow: {
+        flexDirection: "row",
+
+        justifyContent: "flex-end",
+
+        alignItems: "center",
+
+        marginTop: 15,
+    },
+
+    likeButton: {
+        flexDirection: "row",
+
+        alignItems: "center",
+
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+    },
+
+    heart: {
+        fontSize: 25,
+
+        color: "#aaaaaa",
+
+        marginRight: 6,
+    },
+
+    heartLiked: {
+        fontSize: 25,
+    },
+
+    likesCount: {
+        fontSize: 15,
+
+        fontWeight: "600",
+
+        color: "#ffffff",
+    },
+
+    // ====================================
+    // ESTADO CENTRAL
+    // ====================================
+
     center: {
         flex: 1,
+
         alignItems: "center",
+
         justifyContent: "center",
+
         padding: 20,
     },
 
     loadingText: {
         marginTop: 10,
+
         fontSize: 14,
+
         color: "#ffffff",
     },
 
     errorText: {
         fontSize: 15,
+
         color: "#ffcccc",
+
         textAlign: "center",
     },
 
     emptyText: {
         fontSize: 15,
+
         color: "#ffffff",
+
         textAlign: "center",
     },
 
-    /* ---------------------------------- */
-    /* FILTROS DE ÁREA */
-    /* ---------------------------------- */
+    // ====================================
+    // FILTROS DE ÁREA
+    // ====================================
 
     areaFilters: {
         paddingTop: 10,
+
         paddingBottom: 10,
     },
 
     areaFilter: {
         width: 70,
+
         height: 40,
 
         alignItems: "center",
+
         justifyContent: "center",
 
         marginRight: 8,
@@ -549,6 +935,7 @@ const styles = StyleSheet.create({
 
     areaFilterText: {
         fontSize: 12,
+
         fontWeight: "500",
 
         color: "#323232",
@@ -558,6 +945,7 @@ const styles = StyleSheet.create({
 
     areaFilterTextSelected: {
         color: "#ffffff",
+
         fontWeight: "600",
     },
 });
